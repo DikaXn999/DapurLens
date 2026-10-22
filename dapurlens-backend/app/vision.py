@@ -7,7 +7,14 @@ from google.genai import types
 # Nama model Gemini berganti cukup cepat (model lama dipensiunkan, yang baru
 # keluar). Makanya dibuat bisa diganti lewat environment variable tanpa
 # ubah kode. Cek daftar model yang aktif & gratis di aistudio.google.com.
-MODEL = os.getenv("VISION_MODEL", "gemini-3.1-flash-lite")
+MODEL = os.getenv("VISION_MODEL", "gemini-3.6-flash")
+
+# Opsional: tingkat "berpikir" model (MINIMAL / LOW / MEDIUM / HIGH). Gemini
+# 3.6 Flash berpikir secara default, yang bisa memperlambat respons. Untuk
+# mengenali foto makanan, tingkat rendah biasanya sudah cukup dan lebih cepat.
+# Kosongkan (default) = pakai pengaturan bawaan Google. Contoh di .env:
+#   VISION_THINKING_LEVEL=LOW
+THINKING_LEVEL = os.getenv("VISION_THINKING_LEVEL", "").strip().upper()
 
 
 def _build_prompt(known_foods: list[dict]) -> str:
@@ -29,6 +36,13 @@ Lihat foto yang diberikan, lalu balas dalam format JSON seperti ini:
 
 Kalau foto itu bukan makanan sama sekali, atau makanannya jelas tidak ada hubungannya dengan daftar di atas, set best_match_slug jadi null dan confidence jadi 0.
 Isi "alternatives" maksimal 3 item, hanya kalau confidence best_match di bawah 0.6 (supaya user punya pilihan lain kalau sistem tidak yakin)."""
+
+
+def _build_config() -> types.GenerateContentConfig:
+    kwargs = {"response_mime_type": "application/json"}
+    if THINKING_LEVEL:
+        kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=THINKING_LEVEL)
+    return types.GenerateContentConfig(**kwargs)
 
 
 def recognize_food(image_bytes: bytes, media_type: str, known_foods: list[dict]) -> dict:
@@ -54,7 +68,7 @@ def recognize_food(image_bytes: bytes, media_type: str, known_foods: list[dict])
         # tidak membatasi max_output_tokens terlalu kecil karena model baru
         # Gemini memakai token untuk "berpikir" dulu, dan batas yang sempit
         # bisa memotong jawabannya.
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
+        config=_build_config(),
     )
 
     raw_text = (response.text or "").strip()
