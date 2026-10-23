@@ -7,7 +7,7 @@ export default async function Home() {
   const foods = await getFoods();
 
   return (
-    <main className="mx-auto min-h-screen max-w-md bg-stone-50">
+    <main className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl px-4 md:px-6">
       <FoodExplorer foods={foods} />
     </main>
   );

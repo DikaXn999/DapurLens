@@ -30,7 +30,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center bg-stone-50 px-6">
+    <main className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl px-4 md:px-6">
       <h1 className="mb-1 font-serif text-2xl font-bold text-stone-900">Daftar Akun</h1>
       <p className="mb-6 text-sm text-stone-500">Buat akun untuk mulai menambah resep.</p>
 
