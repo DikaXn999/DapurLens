@@ -1,17 +1,13 @@
 import os
 
-from pathlib import Path
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-load_dotenv(Path(__file__).resolve().parent / ".env")
-
 # Di production, ini sebaiknya datang dari environment variable, bukan hardcode.
 # Untuk tahap belajar ini kita hardcode dulu supaya jelas alurnya.
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL belum diatur (lihat .env.example)")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", "postgresql+psycopg2://postgres:DekuBakasta999@localhost:5432/dapurlens"
+)
 
 engine = create_engine(DATABASE_URL)
 
