@@ -13,7 +13,9 @@ from .models import User
 # --- Konfigurasi JWT ---
 # Di production, SECRET_KEY WAJIB datang dari environment variable yang
 # rahasia (jangan pernah commit ke Git). Untuk belajar, kita hardcode dulu.
-SECRET_KEY = os.getenv("SECRET_KEY", "ganti-ini-dengan-string-acak-yang-panjang")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY belum diatur (lihat .env.example)")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # token berlaku 24 jam
 
