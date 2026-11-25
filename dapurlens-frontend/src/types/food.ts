@@ -27,4 +27,7 @@ export interface RecognitionResult {
   confidence: number;
   candidates: RecognitionCandidate[];
   message: string;
+  // Sisa jatah pindai gratis; hanya terisi untuk guest (null = user login, tanpa batas).
+  guestRemaining: number | null;
 }
+

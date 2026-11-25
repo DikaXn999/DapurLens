@@ -5,23 +5,65 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type ListParams = { tag?: string; q?: string };
 
-export async function recognizeFood(file: File): Promise<RecognitionResult> {
-  // FormData = cara standar browser mengirim file lewat fetch (multipart/form-data).
-  // Sengaja TIDAK set header "Content-Type" manual -- browser otomatis
-  // menentukan boundary multipart yang benar; kalau diset manual malah
-  // sering salah dan gagal diparse di backend.
+// Error yang membawa kode status HTTP, supaya UI bisa membedakan
+// 401 (sesi habis) dan 429 (jatah pindai guest habis).
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+async function errorFrom(res: Response, fallback: string): Promise<ApiError> {
+  const body = await res.json().catch(() => null);
+  // Error validasi FastAPI (422) berbentuk array, bukan teks -> pakai fallback.
+  const detail = typeof body?.detail === "string" ? body.detail : fallback;
+  return new ApiError(detail, res.status);
+}
+
+// --- Identitas guest (untuk kuota pindai gratis) ---
+
+const GUEST_ID_KEY = "dapurlens_guest_id";
+
+// Id acak per browser, dikirim ke backend lewat header X-Guest-Id. Angka
+// kuotanya sendiri disimpan di server, bukan di sini.
+export function getGuestId(): string {
+  let id = localStorage.getItem(GUEST_ID_KEY);
+  if (!id) {
+    // crypto.randomUUID hanya ada di konteks aman (https / localhost). Saat
+    // dites dari HP lewat IP jaringan lokal (http) fungsinya tidak ada.
+    id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `g-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+    localStorage.setItem(GUEST_ID_KEY, id);
+  }
+  return id;
+}
+
+export async function getGuestScanQuota(): Promise<{ limit: number; remaining: number }> {
+  const res = await fetch(`${API_URL}/api/guest/scan-quota`, {
+    headers: { "X-Guest-Id": getGuestId() },
+  });
+  if (!res.ok) throw await errorFrom(res, "Gagal mengambil sisa jatah pindai");
+  return res.json();
+}
+
+// token ada  -> user login: tanpa batas pindai.
+// token null -> guest: dibatasi (backend membalas 429 kalau jatah habis).
+export async function recognizeFood(file: File, token: string | null = null): Promise<RecognitionResult> {
   const formData = new FormData();
   formData.append("image", file);
 
   const res = await fetch(`${API_URL}/api/vision/recognize`, {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : { "X-Guest-Id": getGuestId() },
     body: formData,
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.detail ?? "Gagal memindai foto");
-  }
+  if (!res.ok) throw await errorFrom(res, "Gagal memindai foto");
   return res.json();
 }
 
