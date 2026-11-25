@@ -75,3 +75,15 @@ class RecognitionCandidate(Base):
     confidence_score = Column(Float, nullable=False)
 
     recognition_result = relationship("RecognitionResult", back_populates="candidates")
+
+class GuestScan(Base):
+    """
+    Kuota pindai gratis untuk Guest (FR-13). Satu baris per "guest_id",
+    yaitu id acak yang dibuat browser dan dikirim lewat header X-Guest-Id.
+    """
+
+    __tablename__ = "guest_scans"
+
+    guest_id = Column(String, primary_key=True)
+    used = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

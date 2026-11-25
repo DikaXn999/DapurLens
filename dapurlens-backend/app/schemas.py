@@ -97,3 +97,5 @@ class RecognitionOut(BaseModel):
     confidence: float = 0.0
     candidates: list[RecognitionCandidateOut] = []
     message: str = ""
+      # Sisa jatah pindai gratis. Hanya terisi untuk guest; user login = None (tanpa batas).
+    guestRemaining: Optional[int] = None
