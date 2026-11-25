@@ -13,7 +13,7 @@ export interface Food {
   steps: string[];
 }
 
-export type FoodInput = Omit<Food, "slug" | "emoji" | "gradientFrom" | "gradientTo">;
+export type FoodInput = Omit<Food, "slug">;
 
 export interface RecognitionCandidate {
   slug: string;
