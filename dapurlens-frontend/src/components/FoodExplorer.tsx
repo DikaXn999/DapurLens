@@ -19,6 +19,7 @@ const SECTION_LABELS: Record<FilterValue, string> = {
   all: "Semua resep",
   viral: "Resep Viral 🔥",
   daerah: "Resep Khas Daerah",
+  western: "Resep Western",
 };
 
 export default function FoodExplorer({ foods }: Props) {
