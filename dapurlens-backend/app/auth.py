@@ -11,8 +11,8 @@ from .database import get_db
 from .models import User
 
 # --- Konfigurasi JWT ---
-# Di production, SECRET_KEY WAJIB datang dari environment variable yang
-# rahasia (jangan pernah commit ke Git). Untuk belajar, kita hardcode dulu.
+# SECRET_KEY wajib berasal dari environment variable dan harus dirahasiakan.
+# Jangan pernah menyimpan secret asli di repository.
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY belum diatur (lihat .env.example)")
