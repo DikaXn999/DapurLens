@@ -46,6 +46,8 @@ class UserOut(BaseModel):
     id: int
     email: str
     name: str
+    role: str
+    is_active: bool
     # Perhatikan: TIDAK ADA field password/hashed_password di sini.
     # Schema response sengaja tidak menyertakannya, supaya walau ada bug di
     # tempat lain, password tidak akan pernah bisa "bocor" lewat response API.

@@ -1,7 +1,11 @@
+export type Role = "PENGGUNA" | "KREATOR" | "ADMIN";
+
 export interface User {
   id: number;
   email: string;
   name: string;
+  role: Role;
+  is_active: boolean;
 }
 
 export interface AuthResponse {
