@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-FoodTag = Literal ["Viral", "daerah", "Western"]
+FoodTag = Literal ["viral", "daerah", "western"]
 
 class FoodCreate(BaseModel):
     slug: str = Field(..., description="Unique identifier for the food item")
