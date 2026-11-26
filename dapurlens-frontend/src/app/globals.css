@@ -3,6 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Aplikasi ini didesain terang (lihat desain Figma). "only light" mencegah
+     browser menggelapkan halaman secara otomatis dan membuat teks gelap
+     tampil di atas latar gelap. */
+  color-scheme: only light;
 }
 
 @theme inline {
@@ -12,15 +16,19 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Warna dasar kolom isian. Ada di layer base, jadi kelas Tailwind seperti
+   bg-... atau text-... di tiap komponen tetap bisa menimpanya. */
+@layer base {
+  input,
+  textarea,
+  select {
+    background-color: #ffffff;
+    color: #171717;
+  }
 }
