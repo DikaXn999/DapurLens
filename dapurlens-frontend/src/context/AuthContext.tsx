@@ -1,11 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User } from "@/types/user";
+import { User, ViewerRole } from "@/types/user";
 import { getMe, loginUser, registerUser } from "@/lib/api";
 
 type AuthContextValue = {
   user: User | null;
+    // "GUEST" kalau belum login; selain itu isi role dari database.
+  role: ViewerRole;
   token: string | null;
   loading: boolean; // true selagi mengecek token tersimpan saat halaman pertama dimuat
   login: (email: string, password: string) => Promise<void>;
@@ -67,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, role: user ? user.role : "GUEST", token, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
