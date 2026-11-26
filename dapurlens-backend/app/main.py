@@ -1,10 +1,17 @@
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from .auth import create_access_token, get_current_user, hash_password, verify_password
+from .auth import create_access_token, get_current_user, get_optional_user, hash_password, verify_password
+from .guest_quota import (
+    GUEST_SCAN_LIMIT,
+    get_guest_remaining,
+    refund_guest_scan,
+    reserve_guest_scan,
+    validate_guest_id,
+)
 from .models import Food, User
 from .schemas import FoodCreate, FoodOut, FoodUpdate, RecognitionOut, TokenOut, UserCreate, UserLogin, UserOut
 
@@ -227,10 +234,38 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 @app.post("/api/vision/recognize", response_model=RecognitionOut)
-async def recognize(image: UploadFile, db: Session = Depends(get_db)):
-    # Tolak file yang bukan gambar SEBELUM memanggil API berbayar.
+async def recognize(
+    image: UploadFile,
+    db: Session = Depends(get_db),
+    # None = guest. User login = tanpa batas; guest dibatasi (FR-13).
+    user: Optional[User] = Depends(get_optional_user),
+    x_guest_id: Optional[str] = Header(None),
+):
+    # Tolak file yang bukan gambar SEBELUM memakai jatah guest, supaya
+    # salah pilih file tidak membuat jatah "hangus".
     if not image.content_type or not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File harus berupa gambar")
+
+    guest_id: Optional[str] = None
+    guest_remaining: Optional[int] = None
+    if user is None:
+        guest_id = validate_guest_id(x_guest_id)
+        # Jatah dipesan di muka. Kalau habis, langsung 429 tanpa menyentuh AI.
+        guest_remaining = reserve_guest_scan(db, guest_id)
+
+    try:
+        result = await _run_recognition(image, db)
+    except HTTPException:
+        # Gagal di sisi kami (AI error, data resep kosong): jatah dikembalikan.
+        if guest_id:
+            refund_guest_scan(db, guest_id)
+        raise
+
+    result.guestRemaining = guest_remaining
+    return result
+
+
+async def _run_recognition(image: UploadFile, db: Session) -> RecognitionOut:
 
     image_bytes = await image.read()
 
@@ -279,3 +314,7 @@ async def recognize(image: UploadFile, db: Session = Depends(get_db)):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
+@app.get("/api/guest/scan-quota")
+def guest_scan_quota(x_guest_id: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    guest_id = validate_guest_id(x_guest_id)
+    return {"limit": GUEST_SCAN_LIMIT, "remaining": get_guest_remaining(db, guest_id)}

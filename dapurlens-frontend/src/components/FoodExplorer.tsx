@@ -16,10 +16,10 @@ const FILTERS: { value: FilterValue; label: string }[] = [
 ];
 
 const SECTION_LABELS: Record<FilterValue, string> = {
-  all: "Semua",
-  viral: "Viral",
-  daerah: "Daerah",
-  western: "Western",
+  all: "Semua resep",
+  viral: "Resep Viral 🔥",
+  daerah: "Resep Khas Daerah",
+  western: "Resep Western",
 };
 
 export default function FoodExplorer({ foods }: Props) {
@@ -120,7 +120,7 @@ export default function FoodExplorer({ foods }: Props) {
         {filteredFoods.length === 0 ? (
           <p className="py-16 text-center text-sm text-stone-500">Tidak ditemukan — coba kata kunci lain.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {filteredFoods.map((food) => (
               <FoodCard key={food.slug} food={food} />
             ))}

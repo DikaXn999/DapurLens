@@ -6,14 +6,16 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-
+from typing import Optional
 from .database import get_db
 from .models import User
 
 # --- Konfigurasi JWT ---
 # Di production, SECRET_KEY WAJIB datang dari environment variable yang
 # rahasia (jangan pernah commit ke Git). Untuk belajar, kita hardcode dulu.
-SECRET_KEY = os.getenv("SECRET_KEY", "ganti-ini-dengan-string-acak-yang-panjang")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY belum diatur (lihat .env.example)")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # token berlaku 24 jam
 
@@ -21,7 +23,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # token berlaku 24 jam
 # header "Authorization: Bearer <token>" yang dikirim client secara otomatis.
 # tokenUrl cuma dipakai untuk dokumentasi Swagger (/docs), bukan logic inti.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
+# auto_error=False: kalau header Authorization tidak ada, FastAPI TIDAK
+# langsung menolak (401). Token-nya jadi None, dan itu artinya guest.
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 def hash_password(plain_password: str) -> str:
     """
@@ -51,15 +55,8 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
-    """
-    Dependency ini dipasang di endpoint yang BUTUH login (lihat main.py,
-    parameter `user: User = Depends(get_current_user)`). FastAPI otomatis:
-    1. Ambil token dari header Authorization
-    2. Jalankan fungsi ini SEBELUM endpoint dieksekusi
-    3. Kalau token tidak valid, request ditolak duluan (401) —
-       kode di dalam endpoint bahkan tidak sempat jalan.
-    """
+def _user_from_token(token: str, db: Session) -> User:
+    """Decode token lalu cari user-nya di database."""
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token tidak valid atau sudah kedaluwarsa",
@@ -79,3 +76,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_error
 
     return user
+
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    """Untuk endpoint yang WAJIB login."""
+    return _user_from_token(token, db)
+
+
+def get_optional_user(
+    token: Optional[str] = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Untuk endpoint yang boleh dipakai guest maupun user login.
+    - Tidak ada token       -> None (guest)
+    - Token valid           -> User
+    - Token ADA tapi rusak  -> tetap 401, bukan diam-diam dianggap guest.
+      Kalau tidak begitu, user yang sesinya habis akan "berubah jadi guest"
+      tanpa tahu kenapa kuotanya mendadak terbatas.
+    """
+    if not token:
+        return None
+    return _user_from_token(token, db)

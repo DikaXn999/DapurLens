@@ -16,7 +16,7 @@ export default async function RecipeDetailPage({ params }: Props) {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-md bg-stone-50 px-5 pb-10 pt-6">
+    <main className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl px-4 md:px-6">
       <div className="mb-4 flex items-center justify-between">
         <Link href="/" className="inline-flex items-center gap-1 text-sm font-semibold text-[#C1272D]">
           &larr; Kembali ke jelajah resep

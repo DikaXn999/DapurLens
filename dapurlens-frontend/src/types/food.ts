@@ -13,7 +13,9 @@ export interface Food {
   steps: string[];
 }
 
-export type FoodInput = Omit<Food, "slug" | "emoji" | "gradientFrom" | "gradientTo">;
+// Data yang dikirim form saat membuat/mengubah resep. Slug dibuat backend,
+// sedangkan emoji dan warna gradien dikirim dari form.
+export type FoodInput = Omit<Food, "slug">;
 
 export interface RecognitionCandidate {
   slug: string;
@@ -27,4 +29,7 @@ export interface RecognitionResult {
   confidence: number;
   candidates: RecognitionCandidate[];
   message: string;
+  // Sisa jatah pindai gratis; hanya terisi untuk guest (null = user login, tanpa batas).
+  guestRemaining: number | null;
 }
+

@@ -1,14 +1,29 @@
 "use client";
 
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { recognizeFood } from "@/lib/api";
+import { ApiError, getGuestScanQuota, recognizeFood } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { RecognitionResult } from "@/types/food";
 
 type Status = "idle" | "loading" | "done" | "error";
 
 export default function ScanPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const { user, token, loading: authLoading, logout } = useAuth();
+
+  // Kuota pindai gratis -- hanya relevan untuk guest. Angka aslinya ada di
+  // backend; di sini cuma salinan untuk ditampilkan.
+  const [quota, setQuota] = useState<{ limit: number; remaining: number } | null>(null);
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || user) return;
+    getGuestScanQuota()
+      .then(setQuota)
+      .catch(() => setQuota(null)); // gagal ambil info kuota bukan alasan memblokir halaman
+  }, [authLoading, user]);
 
   // File asli disimpan di STATE, bukan dibaca ulang dari fileInputRef saat
   // submit -- soalnya elemen <input> ini hilang dari DOM begitu previewUrl
@@ -32,17 +47,41 @@ export default function ScanPage() {
     setStatus("idle");
   }
 
-  async function handleScan() {
+    async function handleScan() {
     if (!selectedFile) return;
+
+    // Guest yang jatahnya habis: tampilkan peringatan tanpa menembak backend
+    // (backend tetap menolak dengan 429 kalau pengecekan ini dilewati).
+    if (!user && quota && quota.remaining <= 0) {
+      setShowQuotaModal(true);
+      return;
+    }
 
     setStatus("loading");
     setErrorMsg(null);
 
     try {
-      const res = await recognizeFood(selectedFile);
+      // token null -> dipindai sebagai guest (memakai jatah gratis).
+      const res = await recognizeFood(selectedFile, token);
       setResult(res);
       setStatus("done");
+      if (res.guestRemaining !== null) {
+        setQuota((q) => (q ? { ...q, remaining: res.guestRemaining as number } : q));
+      }
     } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setQuota((q) => (q ? { ...q, remaining: 0 } : { limit: 3, remaining: 0 }));
+        setShowQuotaModal(true);
+        setStatus("idle");
+        return;
+      }
+      if (err instanceof ApiError && err.status === 401) {
+        // Token kedaluwarsa: keluarkan supaya halaman kembali ke mode tamu.
+        logout();
+        setErrorMsg("Sesi login Anda sudah berakhir. Masuk lagi, atau pindai sebagai tamu.");
+        setStatus("error");
+        return;
+      }
       setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan");
       setStatus("error");
     }
@@ -58,13 +97,23 @@ export default function ScanPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-md bg-stone-50 px-5 pb-10 pt-6">
+    <main className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-6xl px-4 md:px-6">
       <Link href="/" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-[#C1272D]">
         &larr; Kembali
       </Link>
 
       <h1 className="mb-1 font-serif text-2xl font-bold text-stone-900">Pindai Makanan</h1>
-      <p className="mb-5 text-sm text-stone-500">
+      <p className="mb-3 text-sm text-stone-500">
+              {/* Info mode tamu: sisa jatah + ajakan masuk. User login tidak melihat ini. */}
+      {!authLoading && !user && quota && (
+        <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Mode tamu: sisa <span className="font-bold">{quota.remaining}</span> dari {quota.limit} pindai gratis.{" "}
+          <Link href="/login" className="font-bold underline">
+            Masuk
+          </Link>{" "}
+          untuk pindai tanpa batas.
+        </p>
+      )}
         Ambil atau unggah foto makanan untuk mencari tahu namanya.
       </p>
 
@@ -104,7 +153,10 @@ export default function ScanPage() {
           </button>
           <button
             onClick={handleScan}
-            className="flex-1 rounded-xl bg-[#C1272D] py-2.5 text-sm font-bold text-white"
+            // Tunggu pengecekan login selesai, supaya user yang sebenarnya sudah
+            // login tidak ikut terhitung (dan terbatasi) sebagai guest.
+            disabled={authLoading}
+            className="flex-1 rounded-xl bg-[#C1272D] py-2.5 text-sm font-bold text-white disabled:opacity-60"
           >
             Pindai
           </button>
@@ -171,6 +223,31 @@ export default function ScanPage() {
           <Link href="/" className="mt-2 inline-block text-xs font-bold text-[#C1272D]">
             Cari manual lewat jelajah resep
           </Link>
+        </div>
+      )}
+            {/* Peringatan jatah habis (alur alternatif A4 di UC-05) */}
+      {showQuotaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="mb-1 font-serif text-lg font-bold text-stone-900">Pindai gratis sudah habis</h2>
+            <p className="mb-4 text-sm text-stone-600">
+              Tamu hanya mendapat {quota?.limit ?? 3}x pemindaian gratis. Daftar atau masuk untuk memindai tanpa batas.
+            </p>
+            <div className="flex gap-2">
+              <Link href="/login" className="flex-1 rounded-xl bg-[#C1272D] py-2.5 text-center text-sm font-bold text-white">
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                className="flex-1 rounded-xl border border-[#C1272D] py-2.5 text-center text-sm font-bold text-[#C1272D]"
+              >
+                Daftar
+              </Link>
+            </div>
+            <button onClick={() => setShowQuotaModal(false)} className="mt-3 w-full text-xs font-semibold text-stone-400">
+              Tutup
+            </button>
+          </div>
         </div>
       )}
     </main>
