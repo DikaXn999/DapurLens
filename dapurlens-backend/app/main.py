@@ -186,46 +186,6 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
     token = create_access_token(user_id=user.id)
     return TokenOut(access_token=token, user=UserOut.model_validate(user))
 
-
-@app.post("/api/auth/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
-    if existing:
-        # 409 Conflict = "request valid, tapi bentrok dengan data yang sudah ada"
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email sudah terdaftar")
-
-    user = User(
-        email=payload.email,
-        name=payload.name,
-        hashed_password=hash_password(payload.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    token = create_access_token(user_id=user.id)
-    return TokenOut(access_token=token, user=UserOut.model_validate(user))
-
-
-@app.post("/api/auth/login", response_model=TokenOut)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
-
-    # Sengaja pakai PESAN ERROR YANG SAMA baik email tidak ditemukan maupun
-    # password salah — kalau pesannya beda ("email tidak ada" vs "password
-    # salah"), orang jahat bisa memanfaatkannya untuk menebak email mana
-    # yang terdaftar di sistem kita (disebut "user enumeration attack").
-    invalid_credentials = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Email atau password salah"
-    )
-
-    if not user or not verify_password(payload.password, user.hashed_password):
-        raise invalid_credentials
-
-    token = create_access_token(user_id=user.id)
-    return TokenOut(access_token=token, user=UserOut.model_validate(user))
-
-
 @app.get("/api/auth/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
     # Perhatikan: endpoint ini TIDAK PERNAH query database sendiri untuk
