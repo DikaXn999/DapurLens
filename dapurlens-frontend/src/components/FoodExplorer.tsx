@@ -5,6 +5,7 @@ import { Food, FoodTag } from "@/types/food";
 import FoodCard from "./FoodCard";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { ROLE_LABELS } from "@/lib/permissions";
 
 type Props = { foods: Food[] };
 type FilterValue = "all" | FoodTag;
@@ -57,6 +58,9 @@ export default function FoodExplorer({ foods }: Props) {
             {user ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-white/80">Halo, {user.name.split(" ")[0]}</span>
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {ROLE_LABELS[user.role]}
+                </span>
                 <button onClick={logout} className="text-xs font-bold text-amber-300">
                   Keluar
                 </button>
